@@ -1,0 +1,80 @@
+:root {
+  color-scheme: light dark;
+  --bg: #fff;
+  --fg: #1d2327;
+  --muted: #646970;
+  --line: #dcdcde;
+  --link: #135e96;
+  --warn-bg: #fcf9e8;
+  --warn-line: #dba617;
+  --err-bg: #fcf0f1;
+  --err-line: #b32d2e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d2327;
+    --fg: #f0f0f1;
+    --muted: #a7aaad;
+    --line: #3c434a;
+    --link: #72aee6;
+    --warn-bg: #2c2a1a;
+    --warn-line: #dba617;
+    --err-bg: #331a1b;
+    --err-line: #f86368;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  width: 420px;
+  max-width: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+a { color: var(--link); }
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+h1 { margin: 0; font-size: 15px; }
+.actions button {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg);
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.actions button:hover { border-color: var(--link); }
+.banner {
+  margin: 8px 12px 0;
+  padding: 8px 10px;
+  border-left: 4px solid var(--warn-line);
+  background: var(--warn-bg);
+}
+.banner p { margin: 0 0 4px; }
+.banner p:last-child { margin: 0; }
+.banner-error { border-left-color: var(--err-line); background: var(--err-bg); }
+.summary { margin: 8px 12px; color: var(--muted); }
+.list { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; }
+.list li { padding: 8px 12px; border-top: 1px solid var(--line); }
+.list .title { font-weight: 600; text-decoration: none; display: block; }
+.list .title:hover { text-decoration: underline; }
+.list .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.list .flag { color: var(--warn-line); font-weight: 600; }
+footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+}
+[hidden] { display: none !important; }

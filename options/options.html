@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Options – Polyglots FR</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <h1>Polyglots FR – demandes PTE : options</h1>
+    <p class="muted">Projet communautaire, non officiel. Les réglages sont synchronisés par le navigateur (chrome.storage.sync).</p>
+
+    <form id="form">
+      <label for="team">Équipe FR (pseudos wordpress.org, un par ligne)</label>
+      <textarea id="team" rows="8" spellcheck="false" autocomplete="off"></textarea>
+      <p class="hint">Une demande est considérée comme répondue dès qu’un de ces pseudos y a commenté. Tant que la liste est vide, toutes les demandes restent affichées. Saisis un pseudo par ligne ; le pseudo est celui de l’adresse du profil (profiles.wordpress.org/<em>pseudo</em>). Les Locale Managers et les General Translation Editors fr_FR sont listés sur <a href="https://make.wordpress.org/polyglots/teams/?locale=fr_FR" target="_blank" rel="noopener">make.wordpress.org/polyglots/teams/?locale=fr_FR</a> ; pour les autres membres de l’équipe, demande-les sur le canal Slack #traductions.</p>
+
+      <label for="template">Modèle de réponse</label>
+      <textarea id="template" rows="14" spellcheck="false"></textarea>
+      <p class="hint"><code>{author}</code> est remplacé par le pseudo wordpress.org de l’auteur de la demande. Le formulaire n’est jamais envoyé automatiquement.</p>
+
+      <div class="row">
+        <div>
+          <label for="intervalMinutes">Vérification toutes les (minutes)</label>
+          <input id="intervalMinutes" type="number" min="5" max="1440" step="1">
+        </div>
+        <div>
+          <label for="windowDays">Fenêtre (jours)</label>
+          <input id="windowDays" type="number" min="1" max="365" step="1">
+        </div>
+      </div>
+
+      <label class="check"><input id="notify" type="checkbox"> Notifications système pour les nouvelles demandes</label>
+
+      <div class="buttons">
+        <button type="submit" class="primary">Enregistrer</button>
+        <button type="button" id="reset">Rétablir les valeurs par défaut</button>
+        <span id="status" role="status" aria-live="polite"></span>
+      </div>
+    </form>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>

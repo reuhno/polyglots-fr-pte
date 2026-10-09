@@ -1,0 +1,33 @@
+#pfr-reply-button {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 99999;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: #2271b1;
+  color: #fff;
+  font: 600 14px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+#pfr-reply-button:hover { background: #135e96; }
+#pfr-reply-button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 5px #2271b1; }
+
+#pfr-reply-message {
+  position: fixed;
+  right: 16px;
+  bottom: 64px;
+  z-index: 99999;
+  max-width: 340px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: #1d2327;
+  color: #fff;
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+#pfr-reply-message[data-kind="error"] { background: #8a2424; }
+#pfr-reply-message[data-kind="ok"] { background: #1e5a2e; }
+#pfr-reply-message[hidden] { display: none; }

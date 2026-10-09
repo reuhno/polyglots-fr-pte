@@ -118,7 +118,7 @@ Pour traiter plusieurs demandes d'affilée, sans rouvrir la liste à chaque fois
 
 ## 🔄 Mettre à jour
 
-Quand une nouvelle version existe, un bandeau apparaît dans la fenêtre de l'extension (l'extension consulte le numéro de version au plus une fois par jour).
+Quand une nouvelle version existe, un bandeau apparaît dans la fenêtre de l'extension (l'extension consulte le numéro de version au plus une fois par jour). Si les notifications sont activées dans les options, une notification système vous prévient aussi, **une seule fois par version** ; un clic dessus ouvre la page de téléchargement.
 
 **Étape 1.** Cliquez sur le lien du bandeau et téléchargez le zip de votre navigateur (Chrome ou Firefox).
 

@@ -6,10 +6,10 @@ import { isIgnored, pruneIgnored } from './lib/ignored.js';
 import {
   findUnansweredRequests, findTeamReply, fetchComments, fetchStruckLine, normalizeTeam,
 } from './lib/requests.js';
-import { checkForUpdate } from './lib/version.js';
+import { checkForUpdate, shouldNotifyUpdate } from './lib/version.js';
 import * as Q from './lib/queue.js';
 import {
-  ALARM_CHECK, SITE_URL, LATEST_RELEASE_API_URL, VERSION_CHECK_EVERY_MS, QUEUE, QUEUE_PAGE,
+  ALARM_CHECK, SITE_URL, RELEASES_URL, LATEST_RELEASE_API_URL, VERSION_CHECK_EVERY_MS, QUEUE, QUEUE_PAGE,
 } from './lib/config.js';
 
 // Plafond de sécurité : `notified` ne garde déjà que les demandes encore listées.
@@ -79,6 +79,11 @@ async function notifyNewRequests(requests, notifiedBefore, firstRun) {
 
 api.notifications.onClicked.addListener(async (id) => {
   api.notifications.clear(id);
+  if (id === 'pfr-update') {
+    // Nouvelle version : page de téléchargement (traité avant le cas « notification groupée »).
+    await api.tabs.create({ url: RELEASES_URL });
+    return;
+  }
   const m = /^pfr-req-(\d+)$/.exec(id);
   if (m) {
     const { state } = await getLocal('state');
@@ -96,13 +101,31 @@ api.notifications.onClicked.addListener(async (id) => {
 
 // ---------- vérification ----------
 
-async function maybeCheckVersion() {
+// `notify` : réglage « notifications » de l'utilisateur. Le bandeau de la popup ne dépend pas de lui ; la notification
+// système « nouvelle version » en dépend, et ne part qu'une fois par version (`update.notifiedVersion`).
+async function maybeCheckVersion(withNotification = true) {
   const { update } = await getLocal('update');
   const last = update?.checkedAt || 0;
   if (Date.now() - last < VERSION_CHECK_EVERY_MS) return;
   const localVersion = api.runtime.getManifest().version;
   const res = await checkForUpdate({ url: LATEST_RELEASE_API_URL, localVersion });
-  await setLocal({ update: { ...res, localVersion, checkedAt: Date.now() } });
+  // La dernière version notifiée survit à toutes les vérifications, même en échec.
+  let notifiedVersion = update?.notifiedVersion ?? null;
+  if (withNotification && shouldNotifyUpdate(res, notifiedVersion)) {
+    try {
+      await notifyUpdate(res.latest, localVersion);
+      notifiedVersion = res.latest; // marquée seulement si la notification a bien été créée
+    } catch { /* notification refusée par le système : sans importance, nouvel essai à la prochaine vérification */ }
+  }
+  await setLocal({ update: { ...res, localVersion, checkedAt: Date.now(), notifiedVersion } });
+}
+
+function notifyUpdate(latest, localVersion) {
+  return notify(
+    'pfr-update',
+    `Polyglots FR : nouvelle version ${latest} disponible`,
+    `Version installée : ${localVersion}. Clique pour ouvrir la page de téléchargement.`,
+  );
 }
 
 async function doCheck({ withVersion = false } = {}) {
@@ -160,7 +183,7 @@ async function doCheck({ withVersion = false } = {}) {
     });
   }
   if (withVersion) {
-    try { await maybeCheckVersion(); } catch { /* sans importance */ }
+    try { await maybeCheckVersion(settings.notify); } catch { /* sans importance */ }
   }
 }
 

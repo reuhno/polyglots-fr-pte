@@ -34,6 +34,8 @@
 body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
 main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
 h1 { font-size: 20px; margin: 0 0 4px; }
+.muted a { color: inherit; text-decoration: underline dotted; }
+.muted a:hover, .muted a:focus-visible { color: var(--accent); }
 h2 { font-size: 16px; margin: 20px 0 8px; }
 a { color: var(--link); }
 .muted { color: var(--muted); }

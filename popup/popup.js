@@ -1,7 +1,36 @@
-import { api, getLocal, getSettings } from '../lib/settings.js';
+import { api, getLocal, setLocal, getSettings, ignoreRequest, restoreRequest } from '../lib/settings.js';
 import { RELEASES_URL } from '../lib/config.js';
+import { sortRequests } from '../lib/queue.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Tri de la liste, mémorisé dans storage.local (clé `popupSort`) : 'oldest' (défaut : les plus anciennes sont les
+// plus prioritaires) ou 'newest'. Lecture et écriture ne bloquent jamais l'affichage.
+let sortMode = 'oldest';
+let sortLoaded = false;
+
+async function loadSort() {
+  try {
+    const { popupSort } = await getLocal('popupSort');
+    return popupSort === 'newest' ? 'newest' : 'oldest';
+  } catch {
+    return 'oldest';
+  }
+}
+
+async function saveSort(mode) {
+  try {
+    await setLocal({ popupSort: mode });
+  } catch { /* le choix ne sera pas mémorisé : sans importance */ }
+}
+
+function renderSortButton() {
+  const btn = $('sort');
+  const next = sortMode === 'oldest' ? 'Plus récentes d’abord' : 'Plus anciennes d’abord';
+  const current = sortMode === 'oldest' ? 'plus anciennes d’abord' : 'plus récentes d’abord';
+  btn.title = `Tri actuel : ${current}. Cliquer pour : ${next.toLowerCase()}`;
+  btn.setAttribute('aria-label', btn.title);
+}
 const rtf = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' });
 const dtf = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
 
@@ -49,12 +78,48 @@ async function renderTeamMissing() {
   $('team-missing').hidden = !empty;
 }
 
+// Ignorer ou rétablir (réversible, sans confirmation) : liste et badge mis à jour tout de suite, puis vérification complète.
+async function changeIgnored(action) {
+  try {
+    await action();
+  } catch { /* la vérification complète ci-dessous rétablit un affichage cohérent */ }
+  await render();
+  try {
+    await api.runtime.sendMessage({ type: 'refresh', fresh: true });
+  } catch { /* l'arrière-plan se réveille ; l'état sera relu */ }
+  await render();
+}
+
+// Section repliable « Ignorées (N) » : les demandes ignorées encore dans la fenêtre surveillée.
+function renderIgnored(state) {
+  const box = $('ignored-box');
+  const items = state?.ignoredList || [];
+  box.hidden = items.length === 0;
+  $('ignored-summary').textContent = `Ignorées (${items.length})`;
+  $('ignored-list').replaceChildren(...sortRequests(items).reverse().map((r) =>
+    el('li', {},
+      el('div', { className: 'row-main' },
+        el('a', { className: 'title', href: r.link, target: '_blank', rel: 'noopener', text: r.title || `Demande ${r.id}` })),
+      el('button', {
+        type: 'button',
+        className: 'row-btn',
+        text: 'Rétablir',
+        title: 'Afficher de nouveau cette demande',
+        onclick: () => changeIgnored(() => restoreRequest(r.id)),
+      }))));
+}
+
 // `fallbackDays` : fenêtre des réglages, à défaut de celle de l'état. `failed` : la dernière demande de vérification a échoué.
 function renderList(state, fallbackDays, failed) {
   const list = $('list');
   list.replaceChildren();
+  $('ignored-box').hidden = true;
   const reqs = state?.requests || [];
   $('checked').textContent = '';
+  // Bouton de la file de réponse : seulement quand une vérification a abouti et qu'il y a des demandes.
+  const queueBtn = $('queue-start');
+  queueBtn.hidden = !(state?.checkedAt && reqs.length > 0);
+  queueBtn.textContent = `Répondre en file (${reqs.length})`;
   if (!state) {
     $('summary').textContent = failed ? 'Aucune vérification n’a encore abouti.' : 'Première vérification en cours…';
     return;
@@ -66,10 +131,14 @@ function renderList(state, fallbackDays, failed) {
   }
   const days = state.windowDays ?? fallbackDays;
   const period = days ? `${days} derniers jours` : 'période surveillée';
-  $('summary').textContent = reqs.length
+  // Demandes dont la ligne de tâche #fr_FR est barrée : masquées, mais signalées discrètement.
+  const struck = Number(state.struck) || 0;
+  const struckNote = struck > 0 ? ` (${struck} barrée${struck > 1 ? 's' : ''} masquée${struck > 1 ? 's' : ''})` : '';
+  $('summary').textContent = (reqs.length
     ? `${reqs.length} demande${reqs.length > 1 ? 's' : ''} sans réponse de l’équipe FR (${period}).`
-    : `Aucune demande sans réponse sur ${days ? `les ${period}` : 'la période surveillée'}.`;
-  for (const r of reqs) {
+    : `Aucune demande sans réponse sur ${days ? `les ${period}` : 'la période surveillée'}.`) + struckNote;
+  const ordered = sortMode === 'oldest' ? sortRequests(reqs) : sortRequests(reqs).reverse();
+  for (const r of ordered) {
     const meta = el('div', { className: 'meta' });
     meta.append(
       el('span', { text: relative(r.date), title: dtf.format(new Date(r.date)) }),
@@ -83,9 +152,19 @@ function renderList(state, fallbackDays, failed) {
       meta.append(' · ', el('span', { className: 'flag', text: 'à vérifier', title: 'Un commentateur n’a pas pu être identifié' }));
     }
     list.append(
-      el('li', {}, el('a', { className: 'title', href: r.link, target: '_blank', rel: 'noopener', text: r.title || `Demande ${r.id}` }), meta),
+      el('li', {},
+        el('div', { className: 'row-main' },
+          el('a', { className: 'title', href: r.link, target: '_blank', rel: 'noopener', text: r.title || `Demande ${r.id}` }), meta),
+        el('button', {
+          type: 'button',
+          className: 'row-btn',
+          text: 'Ignorer',
+          title: 'Ne plus afficher cette demande',
+          onclick: () => changeIgnored(() => ignoreRequest(r)),
+        })),
     );
   }
+  renderIgnored(state);
   $('checked').textContent = state.checkedAt ? `Vérifié ${relative(new Date(state.checkedAt).toISOString())}` : '';
 }
 
@@ -103,6 +182,11 @@ function renderError(state, failure) {
 
 async function render(failure = null) {
   const { state, update } = await getLocal(['state', 'update']);
+  if (!sortLoaded) {
+    sortMode = await loadSort(); // une seule fois : le basculement en cours reste valable même si l'écriture échoue
+    sortLoaded = true;
+  }
+  renderSortButton();
   const fallbackDays = await getSettings().then((s) => s.windowDays, () => null);
   await renderTeamMissing();
   renderUpdate(update);
@@ -123,6 +207,16 @@ async function refresh() {
 }
 
 $('refresh').addEventListener('click', refresh);
+$('sort').addEventListener('click', async () => {
+  sortMode = sortMode === 'oldest' ? 'newest' : 'oldest';
+  renderSortButton();
+  await saveSort(sortMode);
+  render();
+});
+$('queue-start').addEventListener('click', async () => {
+  await api.tabs.create({ url: api.runtime.getURL('queue/queue.html') });
+  window.close();
+});
 function openOptions(e) {
   if (e) e.preventDefault();
   api.runtime.openOptionsPage();

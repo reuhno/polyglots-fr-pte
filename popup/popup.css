@@ -62,8 +62,37 @@ h1 { margin: 0; font-size: 15px; }
 .banner p:last-child { margin: 0; }
 .banner-error { border-left-color: var(--err-line); background: var(--err-bg); }
 .summary { margin: 8px 12px; color: var(--muted); }
+.queue-row { margin: 0 12px 8px; }
+.queue-row button {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--link);
+  border-radius: 4px;
+  background: var(--link);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.queue-row button:hover { opacity: 0.9; }
 .list { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; }
-.list li { padding: 8px 12px; border-top: 1px solid var(--line); }
+.list li { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: flex-start; }
+.list .row-main { flex: 1; min-width: 0; }
+.row-btn {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.row-btn:hover, .row-btn:focus-visible { color: var(--fg); border-color: var(--link); }
+.ignored { border-top: 1px solid var(--line); }
+.ignored summary { padding: 8px 12px; color: var(--muted); cursor: pointer; }
+.ignored .list { max-height: 160px; }
 .list .title { font-weight: 600; text-decoration: none; display: block; }
 .list .title:hover { text-decoration: underline; }
 .list .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }

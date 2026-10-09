@@ -8,7 +8,7 @@
   tools/build-firefox.py) avec manifest.json à la racine du zip, à choisir
   directement dans about:debugging.
 
-Exclus : tools/, dist/, README.md et les fichiers cachés. LICENSE est inclus.
+Exclus : tools/, dist/, tests/, README.md et les fichiers cachés. LICENSE est inclus.
 Les archives sont reproductibles (dates, droits et ordre des entrées fixes).
 
 Usage : python3 tools/build-zips.py [--out <dossier>]   (défaut : dist/)

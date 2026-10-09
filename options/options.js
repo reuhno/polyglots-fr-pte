@@ -1,6 +1,12 @@
 import { getSettings, saveSettings, resetSettings } from '../lib/settings.js';
+import { DEFAULT_TEAM } from '../lib/config.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Texte d'aide généré depuis DEFAULT_TEAM : aucune liste en dur dans la page.
+$('team-default').textContent =
+  `La liste par défaut (${DEFAULT_TEAM.join(', ')}) ne s’applique que tant que tu n’as jamais enregistré de liste ; ` +
+  'après un enregistrement, ta liste fait foi, même vide. « Rétablir les valeurs par défaut » la remet.';
 
 function fill(s) {
   $('team').value = s.team.join('\n');
@@ -35,7 +41,7 @@ $('form').addEventListener('submit', async (e) => {
 });
 
 $('reset').addEventListener('click', async () => {
-  if (!window.confirm('Rétablir tous les réglages par défaut ? La liste des pseudos de l’équipe FR sera vidée.')) return;
+  if (!window.confirm('Rétablir tous les réglages par défaut ? La liste des pseudos de l’équipe FR reviendra à celle par défaut.')) return;
   fill(await resetSettings());
   say('Valeurs par défaut rétablies.');
 });

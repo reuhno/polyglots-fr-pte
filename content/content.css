@@ -31,3 +31,44 @@
 #pfr-reply-message[data-kind="error"] { background: #8a2424; }
 #pfr-reply-message[data-kind="ok"] { background: #1e5a2e; }
 #pfr-reply-message[hidden] { display: none; }
+
+/* Barre de la file de réponse : fixe en bas, la page garde de la place en dessous pour ne pas masquer le formulaire. */
+/* --pfr-bar-h : hauteur réelle de la barre, mesurée par content.js (72px tant qu'elle n'est pas mesurée). */
+html.pfr-queue-active body { padding-bottom: var(--pfr-bar-h, 72px); }
+html.pfr-queue-active #pfr-reply-button { bottom: calc(var(--pfr-bar-h, 72px) + 8px); }
+html.pfr-queue-active #pfr-reply-message { bottom: calc(var(--pfr-bar-h, 72px) + 56px); }
+
+#pfr-queue-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100000;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  background: #1d2327;
+  color: #fff;
+  border-top: 4px solid #2271b1;
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+#pfr-queue-bar[data-kind="ok"] { border-top-color: #2e8b4d; }
+#pfr-queue-bar[data-kind="warn"] { border-top-color: #dba617; }
+#pfr-queue-bar .pfr-bar-text { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+#pfr-queue-bar .pfr-bar-actions { display: flex; gap: 8px; }
+#pfr-queue-bar button {
+  padding: 6px 12px;
+  border: 1px solid #8c8f94;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font: 600 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+#pfr-queue-bar button:hover { border-color: #fff; }
+#pfr-queue-bar button.pfr-primary { background: #2271b1; border-color: #2271b1; }
+#pfr-queue-bar button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }

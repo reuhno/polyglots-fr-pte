@@ -23,8 +23,9 @@ DEFAULT_OUT = DIST / "firefox"
 # Fichier témoin déposé dans le dossier produit : sans lui, un dossier non vide n'est jamais vidé.
 MARKER = ".polyglots-fr-pte-build"
 
-# Exclus de la copie : dossiers de travail, README et fichiers cachés.
-EXCLUDED_NAMES = {"tools", "dist", "README.md"}
+# Exclus de la copie : dossiers de travail (outils, sortie, tests), README et fichiers cachés.
+# Ce filtre sert aussi au zip Chrome (build-zips.py).
+EXCLUDED_NAMES = {"tools", "dist", "tests", "README.md"}
 
 GECKO = {
     "id": "polyglots-fr-pte@reuhno.github.io",

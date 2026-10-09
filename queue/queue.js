@@ -1,6 +1,6 @@
 // Page de la file de réponse : sélection des demandes, session en cours, bilan, reprise.
 // La session est pilotée par l'arrière-plan ; cette page l'affiche (storage.onChanged) et lui envoie des ordres.
-import { api, getLocal, ignoreRequest } from '../lib/settings.js';
+import { api, getLocal } from '../lib/settings.js';
 import * as Q from '../lib/queue.js';
 
 const $ = (id) => document.getElementById(id);
@@ -60,13 +60,22 @@ async function order(msg) {
 
 // Ignorer une demande (réversible depuis la popup, section « Ignorées ») : retirée tout de suite de la liste et du badge,
 // puis vérification complète demandée à l'arrière-plan.
+// La liste des ignorées n'est écrite que par l'arrière-plan (message `ignore`, qui met aussi à jour l'état et le badge).
 async function ignore(request) {
   selected.delete(request.id);
+  let res = null;
   try {
-    await ignoreRequest(request);
-  } catch (e) {
-    showError(`Impossible d’ignorer cette demande : ${(e && e.message) || e}`);
-  }
+    res = await api.runtime.sendMessage({
+      type: 'ignore',
+      postId: request.id,
+      link: request.link,
+      title: request.title,
+      authorSlug: request.authorSlug,
+      date: request.date,
+      noRefresh: true,
+    });
+  } catch { /* traité ci-dessous */ }
+  if (!res || !res.ok) showError(`Impossible d’ignorer cette demande : ${(res && res.error) || 'l’extension ne répond pas'}.`);
   await render();
   try {
     await api.runtime.sendMessage({ type: 'refresh', fresh: true });

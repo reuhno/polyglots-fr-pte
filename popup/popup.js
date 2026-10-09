@@ -1,4 +1,4 @@
-import { api, getLocal, setLocal, getSettings, ignoreRequest, restoreRequest } from '../lib/settings.js';
+import { api, getLocal, setLocal, getSettings } from '../lib/settings.js';
 import { RELEASES_URL } from '../lib/config.js';
 import { sortRequests } from '../lib/queue.js';
 
@@ -78,10 +78,12 @@ async function renderTeamMissing() {
   $('team-missing').hidden = !empty;
 }
 
-// Ignorer ou rétablir (réversible, sans confirmation) : liste et badge mis à jour tout de suite, puis vérification complète.
-async function changeIgnored(action) {
+// Ignorer ou rétablir (réversible, sans confirmation). La liste des ignorées n'est écrite que par l'arrière-plan
+// (message `ignore` / `unignore`, qui met aussi à jour l'état local et le badge) ; la popup relit l'état tout de suite,
+// puis demande la vérification complète et relit de nouveau.
+async function changeIgnored(message) {
   try {
-    await action();
+    await api.runtime.sendMessage({ ...message, noRefresh: true });
   } catch { /* la vérification complète ci-dessous rétablit un affichage cohérent */ }
   await render();
   try {
@@ -105,7 +107,7 @@ function renderIgnored(state) {
         className: 'row-btn',
         text: 'Rétablir',
         title: 'Afficher de nouveau cette demande',
-        onclick: () => changeIgnored(() => restoreRequest(r.id)),
+        onclick: () => changeIgnored({ type: 'unignore', postId: r.id }),
       }))));
 }
 
@@ -160,7 +162,9 @@ function renderList(state, fallbackDays, failed) {
           className: 'row-btn',
           text: 'Ignorer',
           title: 'Ne plus afficher cette demande',
-          onclick: () => changeIgnored(() => ignoreRequest(r)),
+          onclick: () => changeIgnored({
+            type: 'ignore', postId: r.id, link: r.link, title: r.title, authorSlug: r.authorSlug, date: r.date,
+          }),
         })),
     );
   }

@@ -1,8 +1,15 @@
-#pfr-reply-button {
+/* Conteneur fixe des deux boutons (« Ignorer » à gauche de « Réponse FR »), en bas à droite : ni l'un ni l'autre
+   ne recouvre le formulaire d'o2, qui est dans le flux de la page. */
+#pfr-buttons {
   position: fixed;
   right: 16px;
   bottom: 16px;
   z-index: 99999;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+#pfr-reply-button, #pfr-ignore-button {
   padding: 10px 16px;
   border: 0;
   border-radius: 6px;
@@ -14,6 +21,11 @@
 }
 #pfr-reply-button:hover { background: #135e96; }
 #pfr-reply-button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 5px #2271b1; }
+/* « Ignorer » : secondaire (fond clair, bordure et texte bleus). */
+#pfr-ignore-button { background: #fff; color: #2271b1; border: 1px solid #2271b1; }
+#pfr-ignore-button:hover { background: #f0f6fc; }
+#pfr-ignore-button:focus-visible { outline: 3px solid #2271b1; outline-offset: 2px; }
+#pfr-ignore-button:disabled { opacity: 0.6; cursor: default; }
 
 #pfr-reply-message {
   position: fixed;
@@ -35,7 +47,9 @@
 /* Barre de la file de réponse : fixe en bas, la page garde de la place en dessous pour ne pas masquer le formulaire. */
 /* --pfr-bar-h : hauteur réelle de la barre, mesurée par content.js (72px tant qu'elle n'est pas mesurée). */
 html.pfr-queue-active body { padding-bottom: var(--pfr-bar-h, 72px); }
-html.pfr-queue-active #pfr-reply-button { bottom: calc(var(--pfr-bar-h, 72px) + 8px); }
+html.pfr-queue-active #pfr-buttons { bottom: calc(var(--pfr-bar-h, 72px) + 8px); }
+/* File pilotée : la barre a ses propres actions, les boutons de page sont masqués (ils reviennent quand la file se termine). */
+html.pfr-queue-live #pfr-buttons { display: none; }
 html.pfr-queue-active #pfr-reply-message { bottom: calc(var(--pfr-bar-h, 72px) + 56px); }
 
 #pfr-queue-bar {

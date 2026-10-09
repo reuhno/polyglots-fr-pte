@@ -1,7 +1,9 @@
 // Arrière-plan : vérification périodique, badge, notifications, contrôle de version.
 // Service worker sous Chrome, script d'arrière-plan (event page) sous Firefox.
 
-import { api, getSettings, getLocal, setLocal, getIgnored, setIgnored } from './lib/settings.js';
+import {
+  api, getSettings, getLocal, setLocal, getIgnored, setIgnored, ignoreRequest, restoreRequest,
+} from './lib/settings.js';
 import { isIgnored, pruneIgnored } from './lib/ignored.js';
 import {
   findUnansweredRequests, findTeamReply, fetchComments, fetchStruckLine, normalizeTeam,
@@ -171,10 +173,16 @@ async function doCheck({ withVersion = false } = {}) {
     await setBadge(slim.length);
     // Élagage de la liste des ignorées, seulement après une vérification réussie (la fenêtre est alors connue) :
     // les ids qui n'y sont plus n'ont plus d'utilité. La liste est relue juste avant, pour ne pas écraser un ajout récent.
+    // Toutes les écritures d'`ignored` passent par la chaîne `inIgnored` : lecture et écriture ne s'intercalent pas avec
+    // un « Ignorer » ou un « Rétablir » demandé en même temps.
     try {
-      const current = postIds.length ? await getIgnored() : []; // fenêtre vide : rien n'est élagué (réponse suspecte)
-      const pruned = pruneIgnored(current, postIds);
-      if (pruned.length !== current.length) await setIgnored(pruned);
+      if (postIds.length) { // fenêtre vide : rien n'est élagué (réponse suspecte)
+        await inIgnored(async () => {
+          const current = await getIgnored();
+          const pruned = pruneIgnored(current, postIds);
+          if (pruned.length !== current.length) await setIgnored(pruned);
+        });
+      }
     } catch { /* sans importance : élagué à la prochaine vérification */ }
   } catch (e) {
     await setLocal({
@@ -218,6 +226,22 @@ function requestFreshCheck() {
 // La session vit dans storage.local.queue (lib/queue.js). Toute lecture-modification-écriture passe par `inQueue`
 // (une seule à la fois, sur le modèle de runCheck). Les requêtes réseau d'une vérification se font hors verrou,
 // puis la session est relue : un message dont la session ou la demande n'est plus la courante est ignoré.
+
+// Écritures de la liste des ignorées faites par l'arrière-plan : une à la fois (lecture-modification-écriture de
+// storage.sync), avec les mêmes fonctions que la popup (lib/settings.js : ignoreRequest, restoreRequest).
+let ignoredChain = Promise.resolve();
+function inIgnored(fn) {
+  const run = ignoredChain.then(fn);
+  ignoredChain = run.then(() => {}, () => {});
+  return run;
+}
+
+// Ignore une demande (liste, état local et badge mis à jour), puis demande une vérification complète (sauf
+// `refresh: false` : la popup et la page de file relancent elle-mêmes la vérification et attendent son résultat).
+async function ignoreAndRefresh(request, { refresh = true } = {}) {
+  await inIgnored(() => ignoreRequest(request));
+  if (refresh) requestFreshCheck();
+}
 
 let queueChain = Promise.resolve();
 function inQueue(fn) {
@@ -412,12 +436,21 @@ async function openCurrentLocked(session, { leaveTab = true } = {}) {
 
 // Règle la demande courante (`status` : 'skipped', ou null pour « suivante » qui exige une demande déjà réglée),
 // puis ouvre la suivante ou termine.
-function settleCurrent(msg, fromTab, status) {
+// `ignore` (« Ignorer » de la barre) : la demande courante, non réglée, est d'abord ajoutée à la liste des ignorées
+// (même chemin que la popup, état et badge à jour), puis marquée `skipped` avec la note « ignorée ».
+function settleCurrent(msg, fromTab, status, { note = null, ignore = false } = {}) {
   return inQueue(async () => {
     let s = await loadSessionChecked();
     if (!Q.isCurrent(s, msg.sessionId, msg.postId) || fromTab !== s.tabId) return { ok: false, reason: 'stale' };
     const item = s.items[s.index];
-    if (status) s = Q.markItem(s, item.id, status);
+    if (ignore && !Q.isFinal(item.status)) {
+      try {
+        await ignoreAndRefresh({ id: item.id, link: item.link, title: item.title, authorSlug: item.author });
+      } catch (e) {
+        return { ok: false, reason: 'error', error: errorText(e) }; // rien n'est marqué : le bénévole peut réessayer
+      }
+    }
+    if (status) s = Q.markItem(s, item.id, status, { note });
     else if (!Q.isFinal(item.status)) return { ok: false, reason: 'notDone' };
     s = Q.advance(s);
     if (s.status !== 'running') {
@@ -609,6 +642,9 @@ async function handleQueueMessage(msg, sender) {
     case 'queue:skip':
       return settleCurrent(msg, fromTab, 'skipped');
 
+    case 'queue:ignore': // « Ignorer » de la barre : mêmes gardes que « Passer »
+      return settleCurrent(msg, fromTab, 'skipped', { note: 'ignorée', ignore: true });
+
     default:
       return { ok: false, error: 'Message inconnu.' };
   }
@@ -679,6 +715,29 @@ api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // Le « hello » arrête la veille tout de suite, sans attendre le verrou de la file (ready et check : une fois validés).
     if (msg.type === 'queue:hello') noteAlive(senderTabId(sender));
     handleQueueMessage(msg, sender).then(sendResponse, (e) => sendResponse({ ok: false, error: errorText(e) }));
+    return true;
+  }
+  // « Ignorer » depuis la page d'une demande (hors file) : état et badge mis à jour tout de suite, vérification relancée.
+  if (msg?.type === 'ignore' || msg?.type === 'unignore' || msg?.type === 'isIgnored') {
+    const id = Number(msg.postId);
+    (async () => {
+      if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'Identifiant de demande invalide.' };
+      if (msg.type === 'isIgnored') return { ok: true, ignored: isIgnored(await getIgnored(), id) };
+      const refresh = !msg.noRefresh;
+      if (msg.type === 'ignore') {
+        await ignoreAndRefresh({
+          id,
+          link: msg.link || undefined,
+          title: msg.title || undefined,
+          authorSlug: msg.authorSlug || undefined,
+          date: msg.date || undefined,
+        }, { refresh });
+      } else {
+        await inIgnored(() => restoreRequest(id));
+        if (refresh) requestFreshCheck();
+      }
+      return { ok: true };
+    })().then(sendResponse, (e) => sendResponse({ ok: false, error: errorText(e) }));
     return true;
   }
   if (msg?.type === 'getSettings') {

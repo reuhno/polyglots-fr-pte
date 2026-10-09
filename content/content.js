@@ -5,6 +5,8 @@
   'use strict';
   const api = globalThis.browser ?? globalThis.chrome;
   const BTN_ID = 'pfr-reply-button';
+  const BTNS_ID = 'pfr-buttons';
+  const IGNORE_ID = 'pfr-ignore-button';
   const MSG_ID = 'pfr-reply-message';
   const BAR_ID = 'pfr-queue-bar';
 
@@ -227,15 +229,87 @@
     showMessage(`Modèle inséré pour @${r.author}. Relis-le, puis publie toi-même : rien n'a été envoyé.`, 'ok');
   }
 
+  // « Ignorer » hors file : la demande disparaît de l'extension (liste, badge, notifications, file). Réversible (popup,
+  // section « Ignorées »). Ne touche pas au champ de commentaire.
+  // Cause d'un échec : l'erreur renvoyée par l'arrière-plan si elle existe, sinon il ne répond pas.
+  const failCause = (res) => (res && res.error ? res.error : "l'extension ne répond pas");
+
+  // Après « Ignorer » réussi, le bouton devient « Rétablir », actif, comme sur une demande déjà ignorée au chargement.
+  async function onIgnoreClick(btn) {
+    const postId = getPostId();
+    if (!postId) return;
+    btn.dataset.acted = '1'; // la réponse tardive de `isIgnored` ne doit plus modifier le bouton
+    btn.disabled = true;
+    const wasIgnored = btn.dataset.state === 'ignored';
+    try {
+      let res;
+      if (wasIgnored) {
+        res = await send({ type: 'unignore', postId });
+      } else {
+        const article = getMainArticle();
+        const title = article && article.querySelector('.entry-title');
+        res = await send({
+          type: 'ignore',
+          postId,
+          link: location.href.split('#')[0],
+          title: title ? title.textContent.trim() : undefined,
+        });
+      }
+      if (res && res.ok) {
+        setIgnoreButton(btn, !wasIgnored);
+        showMessage(
+          wasIgnored
+            ? 'Demande rétablie : elle réapparaîtra dans l’extension.'
+            : 'Demande ignorée : elle n’apparaît plus dans l’extension. Pour la rétablir : popup, section Ignorées.',
+          'ok',
+        );
+      } else {
+        btn.disabled = false;
+        showMessage(`Impossible de ${wasIgnored ? 'rétablir' : 'ignorer'} cette demande (${failCause(res)}).`, 'error');
+      }
+    } catch (e) {
+      btn.disabled = false; // le bouton reste utilisable
+      showMessage(`Impossible de ${wasIgnored ? 'rétablir' : 'ignorer'} cette demande (${(e && e.message) || e}).`, 'error');
+    }
+  }
+
+  function setIgnoreButton(btn, ignored) {
+    btn.dataset.state = ignored ? 'ignored' : 'idle';
+    btn.disabled = false;
+    btn.textContent = ignored ? 'Rétablir' : 'Ignorer';
+    btn.title = ignored
+      ? 'Cette demande est ignorée : la remettre dans la liste de l’extension'
+      : "Ne plus afficher cette demande dans l'extension";
+  }
+
   function injectButton() {
     if (document.getElementById(BTN_ID)) return;
+    // Les deux boutons sont dans un conteneur fixe en bas à droite (qui remonte avec la barre de la file).
+    const box = document.createElement('div');
+    box.id = BTNS_ID;
     const btn = document.createElement('button');
     btn.id = BTN_ID;
     btn.type = 'button';
     btn.textContent = 'Réponse FR';
     btn.title = "Préremplir le commentaire avec le modèle de réponse de l'équipe FR (rien n'est envoyé)";
     btn.addEventListener('click', onClick);
-    document.body.appendChild(btn);
+    const ignoreBtn = document.createElement('button');
+    ignoreBtn.id = IGNORE_ID;
+    ignoreBtn.type = 'button';
+    setIgnoreButton(ignoreBtn, false);
+    ignoreBtn.addEventListener('click', () => onIgnoreClick(ignoreBtn));
+    box.append(ignoreBtn, btn);
+    document.body.appendChild(box);
+    // Demande déjà ignorée ? Le bouton devient « Rétablir ».
+    const postId = getPostId();
+    if (postId) {
+      send({ type: 'isIgnored', postId })
+        .then((res) => {
+          // Réponse tardive : sans effet si l'utilisateur a déjà cliqué sur le bouton.
+          if (res && res.ok && res.ignored && !ignoreBtn.dataset.acted) setIgnoreButton(ignoreBtn, true);
+        })
+        .catch(() => { /* le bouton reste « Ignorer » */ });
+    }
   }
 
   // Uniquement sur la page d'un article (pas sur les listes).
@@ -358,6 +432,7 @@
     const { info } = q;
     const line = `Demande ${info.index + 1}/${info.total} · ${info.author ? `@${info.author}` : 'auteur inconnu'}`;
     const stop = { label: 'Arrêter', onClick: doStop };
+    const ignoreAction = { label: 'Ignorer', onClick: doIgnore };
     // Avertissement d'une action qui a échoué (avancée, arrêt, « Marquer publiée ») : ajouté au texte de la phase.
     const setBar = (l, text, actions, kind) => (
       q.alert ? setBarRaw(l, `${text} ⚠ ${q.alert}`, actions, 'warn') : setBarRaw(l, text, actions, kind)
@@ -373,14 +448,14 @@
           : "Relis, puis publie toi-même avec le bouton d'envoi : l'extension n'envoie rien.";
         if (q.kept) text += ' Le champ contenait déjà du texte : il est conservé.';
         if (!q.user) text += " Pseudo connecté non identifié : seule l'équipe sera reconnue.";
-        setBar(line, text, [{ label: 'Passer', onClick: doSkip }, stop]);
+        setBar(line, text, [{ label: 'Passer', onClick: doSkip }, ignoreAction, stop]);
         break;
       }
       case 'nodetect':
         setBar(
           line,
           'Publication non détectée : vérifie que le commentaire apparaît (modération, erreur o2).',
-          [{ label: 'Marquer publiée', onClick: doMarkPublished, primary: true }, { label: 'Passer', onClick: doSkip }, stop],
+          [{ label: 'Marquer publiée', onClick: doMarkPublished, primary: true }, { label: 'Passer', onClick: doSkip }, ignoreAction, stop],
           'warn',
         );
         break;
@@ -420,7 +495,7 @@
     if (barObserver) barObserver.disconnect();
     barObserver = null;
     document.documentElement.style.removeProperty('--pfr-bar-h');
-    document.documentElement.classList.remove('pfr-queue-active');
+    document.documentElement.classList.remove('pfr-queue-active', 'pfr-queue-live');
     q = null;
   }
 
@@ -631,12 +706,20 @@
       restoreDraft(draft);
       endMode("La file a été arrêtée ou a changé. Cette page n'est plus pilotée par l'extension.");
     } else {
-      recoverFrom(cur, prev, draft, "Impossible de passer à la suite (l'extension ne répond pas) : réessaie.");
+      const verb = {
+        'queue:next': 'passer à la suite',
+        'queue:skip': 'passer cette demande',
+        'queue:ignore': 'ignorer cette demande',
+      }[type] || 'continuer';
+      recoverFrom(cur, prev, draft, `Impossible de ${verb} (${failCause(res)}) : réessaie.`);
     }
   }
 
   const goNext = () => advanceWith('queue:next');
   const doSkip = () => advanceWith('queue:skip');
+  // « Ignorer » : comme « Passer » (champ vidé juste avant l'ordre, texte rendu si l'ordre échoue), mais la demande
+  // est aussi retirée de l'extension. Sans confirmation : réversible depuis la popup.
+  const doIgnore = () => advanceWith('queue:ignore');
 
   async function doStop() {
     const cur = q;
@@ -680,6 +763,7 @@
     stopWatching();
     clearInterval(q.countdown);
     clearInterval(q.heartbeat); // la file n'est plus pilotée : plus de signal de vie
+    document.documentElement.classList.remove('pfr-queue-live'); // les boutons de page réapparaissent
     q.phase = 'ended';
     q.finalText = text;
     render();
@@ -733,7 +817,9 @@
       kept: false,
     };
     q = cur;
-    document.documentElement.classList.add('pfr-queue-active');
+    // « pfr-queue-active » : marge basse de la page pour la barre. « pfr-queue-live » : file pilotée, boutons de page
+    // (« Ignorer », « Réponse FR ») masqués (la barre a ses propres actions) ; retiré par endMode et closeBar.
+    document.documentElement.classList.add('pfr-queue-active', 'pfr-queue-live');
     cur.heartbeat = setInterval(sendAlive, 10000); // toutes les 10 s, quelle que soit la phase
 
     // Page rechargée alors que la demande est déjà réglée : rien à préremplir.

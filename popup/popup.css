@@ -67,6 +67,17 @@ h1 { margin: 0; font-size: 15px; }
 .banner-error { border-left-color: var(--err-line); background: var(--err-bg); }
 .summary { margin: 8px 12px; color: var(--muted); }
 .queue-row { margin: 0 12px 8px; }
+.banner button {
+  margin-top: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--link);
+  border-radius: 4px;
+  background: var(--link);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
 .queue-row button {
   width: 100%;
   padding: 7px 10px;

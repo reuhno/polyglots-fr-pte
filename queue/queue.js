@@ -2,6 +2,9 @@
 // La session est pilotée par l'arrière-plan ; cette page l'affiche (storage.onChanged) et lui envoie des ordres.
 import { api, getLocal } from '../lib/settings.js';
 import * as Q from '../lib/queue.js';
+import { SITE_ORIGINS } from '../lib/config.js';
+import { hasSitePermission } from '../lib/permissions.js';
+import { mountPermissionBanner } from '../lib/permission-banner.js';
 
 const $ = (id) => document.getElementById(id);
 const dtf = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
@@ -235,8 +238,23 @@ function renderReport(session) {
   );
 }
 
+// Bandeau « Autoriser l'accès » (le même que la popup) : sans la permission d'hôte, aucune file ne peut démarrer.
+// Le bouton appelle permissions.request dans le clic (lib/permission-banner.js) ; après accord, vérification complète puis affichage.
+const permissionBanner = mountPermissionBanner($('permission'), {
+  extApi: api,
+  origins: SITE_ORIGINS,
+  onGranted: async () => {
+    try {
+      await api.runtime.sendMessage({ type: 'refresh', fresh: true });
+    } catch { /* l'écouteur permissions.onAdded de l'arrière-plan prend le relais */ }
+    render();
+  },
+});
+
 async function render() {
   const { queue, state } = await getLocal(['queue', 'state']);
+  // À l'ouverture et à chaque changement de `state` (storage.onChanged, plus bas) : permission relue + dernier état connu.
+  permissionBanner.show(!(await hasSitePermission(api, SITE_ORIGINS)) || state?.missingPermission === true);
   if (Q.isActive(queue)) {
     newSelection = false;
     renderSession(queue);

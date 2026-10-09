@@ -1,9 +1,19 @@
 import { api, getLocal, setLocal, getSettings } from '../lib/settings.js';
-import { RELEASES_URL } from '../lib/config.js';
+import { RELEASES_URL, SITE_ORIGINS } from '../lib/config.js';
+import { hasSitePermission, describeCheckError } from '../lib/permissions.js';
+import { mountPermissionBanner } from '../lib/permission-banner.js';
 import { sortRequests } from '../lib/queue.js';
 import { isSignedFirefoxInstall } from '../lib/version.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Bandeau « Autoriser l'accès » : le clic appelle permissions.request directement (voir lib/permission-banner.js).
+// Sous Firefox la popup peut se fermer pendant la demande : l'écouteur permissions.onAdded de l'arrière-plan prend le relais.
+const permissionBanner = mountPermissionBanner($('permission'), {
+  extApi: api,
+  origins: SITE_ORIGINS,
+  onGranted: () => refresh(),
+});
 
 // Tri de la liste, mémorisé dans storage.local (clé `popupSort`) : 'oldest' (défaut : les plus anciennes sont les
 // plus prioritaires) ou 'newest'. Lecture et écriture ne bloquent jamais l'affichage.
@@ -177,11 +187,12 @@ function renderList(state, fallbackDays, failed) {
 }
 
 // `failure` : erreur renvoyée par l'arrière-plan à la dernière demande, prioritaire sur celle de l'état.
-function renderError(state, failure) {
+// `missing` : permission d'hôte absente. Le bandeau de permission suffit alors, pas d'erreur réseau en plus.
+function renderError(state, failure, missing = false) {
   const box = $('error');
-  const error = failure || state?.error;
+  const error = missing ? null : failure || state?.error;
   if (error) {
-    box.textContent = `Dernière vérification en échec : ${error}`;
+    box.textContent = describeCheckError(error); // erreur réseau avec permission accordée : piste « bloqueur »
     box.hidden = false;
   } else {
     box.hidden = true;
@@ -198,7 +209,10 @@ async function render(failure = null) {
   const fallbackDays = await getSettings().then((s) => s.windowDays, () => null);
   await renderTeamMissing();
   renderUpdate(update, await isSignedFirefoxInstall(api));
-  renderError(state, failure);
+  // Permission d'hôte : absente d'après le navigateur (relu à chaque ouverture) ou d'après le dernier état enregistré.
+  const missing = !(await hasSitePermission(api, SITE_ORIGINS)) || state?.missingPermission === true;
+  permissionBanner.show(missing);
+  renderError(state, failure, missing);
   renderList(state, fallbackDays, !!failure);
 }
 
@@ -236,5 +250,5 @@ $('team-missing-link').addEventListener('click', openOptions);
 render().then(async () => {
   const { state } = await getLocal('state');
   // Données absentes ou vieilles de plus de 10 min : relancer une vérification.
-  if (!state || Date.now() - (state.checkedAt || 0) > 10 * 60 * 1000) refresh();
+  if (!state || state.missingPermission || Date.now() - (state.checkedAt || 0) > 10 * 60 * 1000) refresh();
 });

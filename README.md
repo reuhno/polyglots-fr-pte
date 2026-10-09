@@ -179,6 +179,12 @@ Le code est ouvert : vous pouvez le lire dans ce dépôt.
 
 ---
 
+## 🩺 Dépannage
+
+**« Dernière vérification en échec : NetworkError when attempting to fetch resource » (Firefox).** Firefox traite l'accès à make.wordpress.org comme une autorisation facultative : elle peut avoir été refusée à l'installation, ou retirée depuis. La fenêtre de l'extension affiche alors un bandeau « Autoriser l'accès » (le badge montre « ! »). Si le bouton ne suffit pas : `about:addons`, cliquez sur l'extension, onglet **Permissions**, et activez l'accès à make.wordpress.org. Si l'autorisation est bien là, vérifiez qu'un bloqueur (uBlock, protection renforcée contre le pistage) ne bloque pas make.wordpress.org.
+
+---
+
 ## 🤝 Contribuer
 
 Un bogue, une idée, un pseudo d'équipe mal reconnu ? Ouvrez une [issue](https://github.com/reuhno/polyglots-fr-pte/issues).

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Polyglots FR – demandes PTE",
   "short_name": "Polyglots FR",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Suit les demandes PTE fr_FR du blog Polyglots qui attendent une réponse de l'équipe FR. Projet communautaire, non officiel.",
   "icons": {
     "16": "icons/icon-16.png",

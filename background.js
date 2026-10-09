@@ -11,7 +11,10 @@ import {
 import { checkForUpdate, shouldNotifyUpdate, isSignedFirefoxInstall } from './lib/version.js';
 import * as Q from './lib/queue.js';
 import {
-  ALARM_CHECK, SITE_URL, RELEASES_URL, LATEST_RELEASE_API_URL, VERSION_CHECK_EVERY_MS, QUEUE, QUEUE_PAGE,
+  hasSitePermission, originsTouchSite, currentIsFirefox, missingStartError, MISSING_TITLE, FAILED_TITLE,
+} from './lib/permissions.js';
+import {
+  ALARM_CHECK, SITE_URL, SITE_ORIGINS, RELEASES_URL, LATEST_RELEASE_API_URL, VERSION_CHECK_EVERY_MS, QUEUE, QUEUE_PAGE,
 } from './lib/config.js';
 
 // Plafond de sécurité : `notified` ne garde déjà que les demandes encore listées.
@@ -33,7 +36,8 @@ async function ensureAlarm(intervalMinutes, { force = false } = {}) {
 
 // ---------- badge ----------
 
-async function setBadge(count) {
+// `title` : titre à la place de celui du compte (par exemple après une vérification en échec).
+async function setBadge(count, { title = null } = {}) {
   const text = count > 0 ? (count > 99 ? '99+' : String(count)) : '';
   await api.action.setBadgeText({ text });
   if (api.action.setBadgeBackgroundColor) {
@@ -44,10 +48,23 @@ async function setBadge(count) {
   }
   await api.action.setTitle({
     title:
-      count > 0
+      title
+      || (count > 0
         ? `Polyglots FR : ${count} demande${count > 1 ? 's' : ''} sans réponse de l'équipe FR`
-        : 'Polyglots FR : aucune demande en attente',
+        : 'Polyglots FR : aucune demande en attente'),
   });
+}
+
+// Permission d'hôte manquante : « ! » et un titre qui dit quoi faire (pas de notification système).
+async function setBadgeMissingPermission() {
+  await api.action.setBadgeText({ text: '!' });
+  if (api.action.setBadgeBackgroundColor) {
+    await api.action.setBadgeBackgroundColor({ color: '#b32d2e' });
+  }
+  if (api.action.setBadgeTextColor) {
+    await api.action.setBadgeTextColor({ color: '#ffffff' }).catch(() => {});
+  }
+  await api.action.setTitle({ title: MISSING_TITLE });
 }
 
 // ---------- notifications ----------
@@ -138,6 +155,15 @@ async function doCheck({ withVersion = false } = {}) {
   const settings = await getSettings();
   const local = await getLocal(['notified', 'initialized', 'slugById', 'state']);
   const cache = { slugById: local.slugById || {} };
+  if (!(await hasSitePermission(api, SITE_ORIGINS))) {
+    // Permission d'hôte absente (Firefox : refusée ou retirée) : aucune requête vers make.wordpress.org, elle échouerait.
+    // Les dernières demandes connues sont conservées, l'état l'indique, le badge demande l'autorisation, pas de notification.
+    await setLocal({ state: { ...(local.state || { requests: [] }), error: null, missingPermission: true } });
+    try {
+      await setBadgeMissingPermission();
+    } catch { /* badge indisponible : sans importance */ }
+  } else {
+  // (le corps de cette branche n'est pas réindenté : seule l'accolade ajoutée change)
   try {
     const { requests, ignoredPosts, postIds, stats } = await findUnansweredRequests({
       team: settings.team,
@@ -172,6 +198,7 @@ async function doCheck({ withVersion = false } = {}) {
         ignored: ignoredPosts.length, // demandes ignorées par l'utilisateur, encore dans la fenêtre
         ignoredList: ignoredPosts, // pour la section « Ignorées » de la popup
         error: null,
+        missingPermission: false,
       },
     });
     await setBadge(slim.length);
@@ -190,9 +217,15 @@ async function doCheck({ withVersion = false } = {}) {
     } catch { /* sans importance : élagué à la prochaine vérification */ }
   } catch (e) {
     await setLocal({
-      state: { ...(local.state || { requests: [] }), error: errorText(e), errorAt: Date.now() },
+      state: { ...(local.state || { requests: [] }), error: errorText(e), errorAt: Date.now(), missingPermission: false },
       slugById: cache.slugById,
     });
+    // Le badge reste cohérent : plus de « ! » (la permission est là), nombre de demandes de l'état conservé, titre d'échec.
+    try {
+      const kept = local.state && Array.isArray(local.state.requests) ? local.state.requests.length : 0;
+      await setBadge(kept, { title: FAILED_TITLE });
+    } catch { /* badge indisponible : sans importance */ }
+  }
   }
   if (withVersion) {
     try { await maybeCheckVersion(settings.notify); } catch { /* sans importance */ }
@@ -516,6 +549,8 @@ async function handleQueueMessage(msg, sender) {
     case 'queue:start':
       return inQueue(async () => {
         if (Q.isActive(await loadSessionChecked())) return { ok: false, error: 'Une file est déjà en cours.' };
+        // Sans la permission d'hôte, la vérification préalable et la détection échoueraient : on refuse clairement.
+        if (!(await hasSitePermission(api, SITE_ORIGINS))) return { ok: false, error: missingStartError(currentIsFirefox(api)) };
         const { state } = await getLocal('state');
         const wanted = new Set((msg.ids || []).map(String));
         const requests = Q.sortRequests((state?.requests || []).filter((r) => wanted.has(String(r.id))));
@@ -706,6 +741,17 @@ api.runtime.onStartup.addListener(async () => {
 api.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_CHECK) runCheck({ withVersion: true });
 });
+
+// Permission accordée ou retirée (popup fermée pendant la demande sous Firefox, ou about:addons → Permissions) :
+// la vérification repart tout de suite (badge, état), mais seulement si l'événement concerne make.wordpress.org
+// (`changes.origins` recoupe SITE_ORIGINS). Détection défensive : l'API peut être absente.
+if (api.permissions && api.permissions.onAdded && api.permissions.onRemoved) {
+  const onSitePermissionChange = (changes) => {
+    if (originsTouchSite(changes, SITE_ORIGINS)) requestFreshCheck();
+  };
+  api.permissions.onAdded.addListener(onSitePermissionChange);
+  api.permissions.onRemoved.addListener(onSitePermissionChange);
+}
 
 api.storage.onChanged.addListener(async (changes, area) => {
   if (area !== 'sync') return;

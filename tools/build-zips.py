@@ -11,6 +11,9 @@
 Exclus : tools/, dist/, tests/, README.md et les fichiers cachés. LICENSE est inclus.
 Les archives sont reproductibles (dates, droits et ordre des entrées fixes).
 
+Le zip Firefox sert au module temporaire (développement). L'installation permanente passe par le .xpi signé par AMO
+et le updates.json de la release : voir tools/sign-firefox.py (marche à suivre complète pour publier une version).
+
 Usage : python3 tools/build-zips.py [--out <dossier>]   (défaut : dist/)
 """
 

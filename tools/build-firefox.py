@@ -27,10 +27,14 @@ MARKER = ".polyglots-fr-pte-build"
 # Ce filtre sert aussi au zip Chrome (build-zips.py).
 EXCLUDED_NAMES = {"tools", "dist", "tests", "README.md"}
 
+# update_url (HTTPS obligatoire) : manifeste de mise à jour des installations signées hors AMO (voir
+# tools/sign-firefox.py). Il est joint comme pièce de chaque release (updates.json) ; « latest/download » pointe donc
+# toujours vers celui de la dernière release, sans commit.
 GECKO = {
     "id": "polyglots-fr-pte@reuhno.github.io",
     "strict_min_version": "121.0",
     "data_collection_permissions": {"required": ["none"]},
+    "update_url": "https://github.com/reuhno/polyglots-fr-pte/releases/latest/download/updates.json",
 }
 
 

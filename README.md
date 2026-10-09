@@ -40,15 +40,17 @@ Il vous reste à vérifier la liste de l'équipe FR, dans « Équipe FR : à vé
 
 ## 🦊 Installer dans Firefox
 
-**Étape 1.** Téléchargez le fichier : [polyglots-fr-pte-firefox.zip](https://github.com/reuhno/polyglots-fr-pte/releases/latest/download/polyglots-fr-pte-firefox.zip). **Ne le dézippez pas.**
+**Installation permanente (recommandée).** L'extension est signée par Mozilla (hors du catalogue public) : elle reste installée après un redémarrage de Firefox et **se met à jour toute seule**.
 
-**Étape 2.** Copiez `about:debugging#/runtime/this-firefox` dans la barre d'adresse.
+**Étape 1.** Ouvrez la [page de la dernière version](https://github.com/reuhno/polyglots-fr-pte/releases/latest) et cliquez sur le fichier **`polyglots-fr-pte-<version>.xpi`** (ou glissez-le dans une fenêtre Firefox).
 
-**Étape 3.** Cliquez sur **« Charger un module complémentaire temporaire… »** et choisissez le fichier zip tel quel.
+**Étape 2.** Firefox demande confirmation : cliquez sur **Ajouter**. Si Firefox **télécharge** le fichier au lieu de proposer l'installation, ouvrez `about:addons`, cliquez sur la roue dentée, puis sur **« Installer un module depuis un fichier… »** et choisissez le `.xpi` téléchargé.
 
-**Étape 4.** Si Firefox demande l'accès aux sites : ouvrez `about:addons`, cliquez sur l'extension, onglet **Permissions**, et autorisez l'accès à make.wordpress.org.
+**Étape 3.** Si Firefox demande l'accès aux sites : ouvrez `about:addons`, cliquez sur l'extension, onglet **Permissions**, et autorisez l'accès à make.wordpress.org.
 
-> ⚠️ **Firefox retire ce type de module à chaque redémarrage.** Il faut le recharger (étapes 2 et 3) à chaque fois que vous relancez Firefox. Chrome n'a pas ce défaut.
+**Module temporaire (développement).** Le zip [polyglots-fr-pte-firefox.zip](https://github.com/reuhno/polyglots-fr-pte/releases/latest/download/polyglots-fr-pte-firefox.zip) (**à ne pas dézipper**) se charge depuis `about:debugging#/runtime/this-firefox` avec **« Charger un module complémentaire temporaire… »**.
+
+> ⚠️ **Firefox retire un module temporaire à chaque redémarrage.** Il faut le recharger à chaque fois que vous relancez Firefox, et il ne se met pas à jour tout seul. Préférez le `.xpi` signé.
 
 Il vous reste à vérifier la liste de l'équipe FR, dans « Équipe FR : à vérifier au premier lancement », juste en dessous.
 
@@ -120,11 +122,15 @@ Pour traiter plusieurs demandes d'affilée, sans rouvrir la liste à chaque fois
 
 Quand une nouvelle version existe, un bandeau apparaît dans la fenêtre de l'extension (l'extension consulte le numéro de version au plus une fois par jour). Si les notifications sont activées dans les options, une notification système vous prévient aussi, **une seule fois par version** ; un clic dessus ouvre la page de téléchargement.
 
+**Firefox, installation par le `.xpi` signé** : rien à faire. Firefox vérifie les mises à jour de lui-même (environ une fois par jour) et installe la nouvelle version ; pour la forcer, `about:addons`, roue dentée, « Rechercher des mises à jour ».
+
+**Chrome, et Firefox en module temporaire :**
+
 **Étape 1.** Cliquez sur le lien du bandeau et téléchargez le zip de votre navigateur (Chrome ou Firefox).
 
 **Étape 2.** Chrome : dézippez, puis remplacez le contenu de l'ancien dossier `polyglots-fr-pte` par celui du nouveau, **au même endroit**.
 
-**Étape 3.** Chrome : sur la page `chrome://extensions`, cliquez sur la flèche circulaire ↻ de la carte de l'extension. Firefox : rechargez le module comme à l'installation (zip tel quel).
+**Étape 3.** Chrome : sur la page `chrome://extensions`, cliquez sur la flèche circulaire ↻ de la carte de l'extension. Firefox (module temporaire) : rechargez le module comme à l'installation (zip tel quel).
 
 ---
 
@@ -158,8 +164,14 @@ Le code est ouvert : vous pouvez le lire dans ce dépôt.
 
 - **Charger le dépôt directement dans Chrome** : `chrome://extensions` → Mode développeur → « Charger l'extension non empaquetée » → le dossier du dépôt (celui qui contient `manifest.json`). Aucune étape de construction.
 - **Version Firefox** : `python3 tools/build-firefox.py` fabrique `dist/firefox/` (Python 3, sans dépendance), à charger depuis `about:debugging`. `--out <dossier>` choisit un autre emplacement. Le script dépose un fichier témoin (`.polyglots-fr-pte-build`) dans le dossier produit et ne vide un dossier existant que s'il est vide ou porte ce témoin ; sinon il refuse (code de sortie 1). Dans le projet, seuls les sous-dossiers de `dist/` sont admis. Le `manifest.json` de la racine est la version Chrome et la source du numéro de version ; le script en dérive le manifeste Firefox.
-- **Zips de release** : `python3 tools/build-zips.py` produit dans `dist/` (ou `--out <dossier>`) `polyglots-fr-pte-chrome.zip` et `polyglots-fr-pte-firefox.zip`. Montez d'abord `version` dans `manifest.json` (format `x.y.z`), puis joignez les deux zips à la release GitHub.
-- **Contrôle de version** : la version annoncée aux utilisateurs est celle de la **dernière release publiée** sur GitHub (`tag_name`, préfixe `v` facultatif ; constante `LATEST_RELEASE_API_URL` de `lib/config.js`), pas celle de `main` : un changement de version dans `manifest.json` n'est annoncé qu'une fois la release publiée avec ses deux zips. Tant qu'aucune release n'existe (404), aucun bandeau n'apparaît.
+- **Zips de release** : `python3 tools/build-zips.py` produit dans `dist/` (ou `--out <dossier>`) `polyglots-fr-pte-chrome.zip` et `polyglots-fr-pte-firefox.zip`. Montez d'abord `version` dans `manifest.json` (format `x.y.z`), puis joignez les deux zips à la release GitHub (voir « Publier une version » ci-dessous pour la signature Firefox).
+- **Publier une version** (mainteneur) :
+  1. Montez `version` dans `manifest.json` (AMO refuse une version déjà envoyée) et **commitez** : `sign-firefox.py` refuse de signer un dépôt qui a des modifications non commitées (`--allow-dirty` pour passer outre, déconseillé).
+  2. `python3 tools/build-zips.py --out <dossier>` produit les deux zips.
+  3. Exportez vos clés AMO dans l'**environnement** (jamais en argument ni dans un fichier du dépôt) : `export AMO_JWT_ISSUER='…'` et `export AMO_JWT_SECRET='…'` (page des clés d'API d'addons.mozilla.org).
+  4. `python3 tools/sign-firefox.py --out <dossier>` fait signer la version Firefox par AMO (canal non listé) et écrit `polyglots-fr-pte-<version>.xpi` et `updates.json` dans le dossier (Node 20 ou plus requis). web-ext 10.7.0 est installé par `npm ci --ignore-scripts` à partir de `tools/web-ext/package-lock.json` : **arbre de dépendances verrouillé, scripts d'installation désactivés, et cette installation se fait sans les clés dans l'environnement**. Les clés ne sont transmises qu'au processus de signature, par son environnement, jamais en argument. Si web-ext échoue, rien n'est écrit. `--updates-only <xpi>` régénère seulement `updates.json` à partir d'un `.xpi` signé existant (archive lisible, signée, à la version du dépôt), sans signer.
+  5. `gh release create v<version>` : **le tag doit être `v<version>`** (le « v » est obligatoire, car le lien du `.xpi` dans `updates.json` en dépend), avec les **quatre** fichiers : `polyglots-fr-pte-chrome.zip`, `polyglots-fr-pte-firefox.zip`, `polyglots-fr-pte-<version>.xpi` et `updates.json`. Les noms doivent rester ceux produits ; en particulier **`updates.json` est un nom figé**, puisque l'`update_url` du manifeste Firefox y pointe. `updates.json` désigne le `.xpi` par son nom et son empreinte SHA-256. Le manifeste Firefox pointe vers `releases/latest/download/updates.json` (`update_url`) : c'est le `updates.json` de la dernière release (hors pré-version) que Firefox consulte, donc les mises à jour partent quand la release est promue en « latest ».
+- **Contrôle de version** : la version annoncée aux utilisateurs est celle de la **dernière release publiée** sur GitHub (`tag_name` au format `vX.Y.Z` : le « v » est obligatoire pour le lien du `.xpi` d'`updates.json`, même si la comparaison de versions de l'extension le tolérerait absent ; constante `LATEST_RELEASE_API_URL` de `lib/config.js`), pas celle de `main` : un changement de version dans `manifest.json` n'est annoncé qu'une fois la release publiée avec ses deux zips. Tant qu'aucune release n'existe (404), aucun bandeau n'apparaît.
 - **Logique de filtrage** : `lib/requests.js` est un module pur, sans API d'extension, utilisable sous Node 18 ou plus. `lib/queue.js` (machine d'états de la file de réponse) l'est aussi.
 - **Tests** : `node --test tests/*.test.mjs` (Node 20 ou plus, sans dépendance, `fetch` simulé). Le dossier `tests/` n'est pas inclus dans les zips.
 - **File de réponse** : la session est stockée dans `storage.local.queue` et pilotée par `background.js` ; `content/content.js` affiche la barre et demande la confirmation de publication par l'API REST (le DOM d'o2 ne sert que de déclencheur). Les durées (anti-flood, cadence des vérifications) sont dans `QUEUE`, `lib/config.js`.

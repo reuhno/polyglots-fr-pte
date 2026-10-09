@@ -1,6 +1,7 @@
 import { api, getLocal, setLocal, getSettings } from '../lib/settings.js';
 import { RELEASES_URL } from '../lib/config.js';
 import { sortRequests } from '../lib/queue.js';
+import { isSignedFirefoxInstall } from '../lib/version.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -53,7 +54,8 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
-function renderUpdate(update) {
+// `signed` : installation Firefox par le .xpi signé (mises à jour automatiques), voir isSignedFirefoxInstall.
+function renderUpdate(update, signed = false) {
   const box = $('update');
   box.replaceChildren();
   // Dépôt absent (404) ou vérification en échec : pas de bandeau.
@@ -63,8 +65,10 @@ function renderUpdate(update) {
   }
   box.append(
     el('p', {}, el('strong', { text: `Nouvelle version disponible : ${update.latest}` }), ` (installée : ${update.localVersion}).`),
-    el('p', {}, el('a', { href: RELEASES_URL, target: '_blank', rel: 'noopener', text: 'Ouvrir la page de téléchargement' }),
-      '. Télécharge le zip de ton navigateur (Chrome ou Firefox), remplace le dossier de l’extension par son contenu, puis clique sur ↻ dans chrome://extensions (Chrome) ou recharge le module (Firefox).'),
+    signed
+      ? el('p', { text: 'Firefox installera la nouvelle version tout seul (ou : menu Modules, roue dentée, « Rechercher des mises à jour »).' })
+      : el('p', {}, el('a', { href: RELEASES_URL, target: '_blank', rel: 'noopener', text: 'Ouvrir la page de téléchargement' }),
+        '. Chrome : télécharge le zip, remplace le dossier de l’extension par son contenu, puis clique sur ↻ dans chrome://extensions. Firefox : installe le .xpi signé de cette page (il se mettra à jour tout seul) ; avec un module temporaire, recharge le zip.'),
   );
   box.hidden = false;
 }
@@ -193,7 +197,7 @@ async function render(failure = null) {
   renderSortButton();
   const fallbackDays = await getSettings().then((s) => s.windowDays, () => null);
   await renderTeamMissing();
-  renderUpdate(update);
+  renderUpdate(update, await isSignedFirefoxInstall(api));
   renderError(state, failure);
   renderList(state, fallbackDays, !!failure);
 }

@@ -1,7 +1,43 @@
 // Notification système « nouvelle version » : décision pure (lib/version.js). Lancer : node --test tests/*.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shouldNotifyUpdate, checkForUpdate } from '../lib/version.js';
+import { shouldNotifyUpdate, checkForUpdate, isSignedFirefoxInstall } from '../lib/version.js';
+
+// ---------- type d'installation (bandeau et notification) ----------
+
+const firefox = (installType) => ({
+  runtime: { getManifest: () => ({ browser_specific_settings: { gecko: { id: 'x@y' } } }) },
+  management: { getSelf: async () => ({ installType }) },
+});
+
+test('isSignedFirefoxInstall : Firefox avec installType « normal » (.xpi signé) → oui', async () => {
+  assert.equal(await isSignedFirefoxInstall(firefox('normal')), true);
+});
+
+test('isSignedFirefoxInstall : module temporaire (« development ») et autres types → non', async () => {
+  for (const t of ['development', 'sideload', 'admin', 'other', undefined]) {
+    assert.equal(await isSignedFirefoxInstall(firefox(t)), false, String(t));
+  }
+});
+
+test('isSignedFirefoxInstall : Chrome (pas de gecko dans le manifeste) → non, même en « normal »', async () => {
+  const chrome = {
+    runtime: { getManifest: () => ({ name: 'x' }) },
+    management: { getSelf: async () => ({ installType: 'normal' }) },
+  };
+  assert.equal(await isSignedFirefoxInstall(chrome), false);
+});
+
+test('isSignedFirefoxInstall : détection défensive (management absent, erreur, API absente) → non, sans exception', async () => {
+  assert.equal(await isSignedFirefoxInstall({ runtime: firefox('normal').runtime }), false, 'management absent');
+  assert.equal(await isSignedFirefoxInstall({ runtime: firefox('normal').runtime, management: {} }), false, 'getSelf absent');
+  assert.equal(await isSignedFirefoxInstall({
+    runtime: firefox('normal').runtime, management: { getSelf: async () => { throw new Error('refusé'); } },
+  }), false, 'getSelf lève');
+  assert.equal(await isSignedFirefoxInstall(undefined), false);
+  assert.equal(await isSignedFirefoxInstall({}), false);
+  assert.equal(await isSignedFirefoxInstall({ runtime: { getManifest: () => { throw new Error('x'); } } }), false);
+});
 
 test('shouldNotifyUpdate : version plus récente jamais notifiée → oui', () => {
   assert.equal(shouldNotifyUpdate({ status: 'ok', latest: '0.2.1', newer: true }, null), true);

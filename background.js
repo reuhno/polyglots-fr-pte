@@ -8,7 +8,7 @@ import { isIgnored, pruneIgnored } from './lib/ignored.js';
 import {
   findUnansweredRequests, findTeamReply, fetchComments, fetchStruckLine, normalizeTeam,
 } from './lib/requests.js';
-import { checkForUpdate, shouldNotifyUpdate } from './lib/version.js';
+import { checkForUpdate, shouldNotifyUpdate, isSignedFirefoxInstall } from './lib/version.js';
 import * as Q from './lib/queue.js';
 import {
   ALARM_CHECK, SITE_URL, RELEASES_URL, LATEST_RELEASE_API_URL, VERSION_CHECK_EVERY_MS, QUEUE, QUEUE_PAGE,
@@ -122,11 +122,15 @@ async function maybeCheckVersion(withNotification = true) {
   await setLocal({ update: { ...res, localVersion, checkedAt: Date.now(), notifiedVersion } });
 }
 
-function notifyUpdate(latest, localVersion) {
+async function notifyUpdate(latest, localVersion) {
+  // Installation Firefox par le .xpi signé : Firefox met à jour tout seul, pas de consigne de téléchargement.
+  const signed = await isSignedFirefoxInstall(api);
   return notify(
     'pfr-update',
     `Polyglots FR : nouvelle version ${latest} disponible`,
-    `Version installée : ${localVersion}. Clique pour ouvrir la page de téléchargement.`,
+    signed
+      ? `Version installée : ${localVersion}. Firefox l’installera tout seul ; clique pour voir la page de la version.`
+      : `Version installée : ${localVersion}. Clique pour ouvrir la page de téléchargement.`,
   );
 }
 

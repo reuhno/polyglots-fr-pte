@@ -1,0 +1,9 @@
+{
+  "name": "polyglots-fr-pte-signing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Outil de signature AMO (web-ext) à version et arbre de dépendances verrouillés : voir tools/sign-firefox.py.",
+  "dependencies": {
+    "web-ext": "10.7.0"
+  }
+}

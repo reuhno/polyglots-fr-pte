@@ -76,6 +76,8 @@ Une demande est considérée comme répondue dès qu'un de ces pseudos y a comme
 
 Dans le même écran, vous pouvez modifier le texte de la réponse type, la fréquence de vérification, le nombre de jours surveillés et les notifications.
 
+**Modèle de réponse par défaut (0.2.5)** : le texte par défaut a changé en 0.2.5 (ajout d'une note sur les traductions générées par IA). Si vous avez enregistré votre propre modèle dans les options, vous le gardez : pour reprendre le nouveau, cliquez sur « Rétablir les valeurs par défaut ». Ce bouton remet à leur valeur par défaut le modèle de réponse, la liste de l'équipe FR, la fréquence de vérification, le nombre de jours surveillés et les notifications ; il ne touche pas à la liste des demandes ignorées.
+
 **Demandes ignorées** : elles ne se gèrent pas dans les options, mais dans la fenêtre de l'extension (section « Ignorées », bouton **Rétablir**). La liste est synchronisée par le navigateur, limitée à 500 demandes ; une demande qui sort de la période surveillée est retirée toute seule de la liste. « Rétablir les valeurs par défaut », dans les options, ne la vide pas.
 
 ---
